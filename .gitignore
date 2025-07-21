@@ -1,0 +1,69 @@
+## Build results
+bin/
+obj/
+out/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS Code settings
+.vscode/
+
+## Rider settings
+.idea/
+
+## ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+## NuGet packages
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Dotnet CLI
+*.dbmdl
+*.log
+*.tlog
+
+## Logs
+*.log
+*.vspscc
+*.vssscc
+
+## Others
+*.DS_Store
+Thumbs.db
+
+# Publish
+wwwroot/dist/
+wwwroot/node_modules/
+publish/
+*.Publish.xml
+
+# dotenv files
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Coverage reports
+coverage/
+
+# Testing
+TestResults/
+*.coverage
+*.coveragexml
+
+# Secrets (if using secrets.json)
+secrets.json
+
+*.bin
+*.vs

@@ -1,0 +1,416 @@
+﻿@model ChatViewModel
+@{
+    ViewData["Title"] = "Chat Application";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Sidebar - Danh sách phòng -->
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Phòng Chat</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="room-list">
+                        @foreach (var room in Model.Rooms)
+                        {
+                            <a href="?room=@room.Name" class="list-group-item list-group-item-action @(room.Name == Model.CurrentRoom ? "active" : "")">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">@room.Name</h6>
+                                    @if (room.IsPrivate)
+                                    {
+                                        <small><i class="fas fa-lock"></i></small>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(room.Description))
+                                {
+                                    <small class="text-muted">@room.Description</small>
+                                }
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Online Users -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Người dùng trực tuyến</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="online-users">
+                        <!-- Users sẽ được thêm qua JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i> @Model.CurrentRoom
+                    </h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadMoreMessages()">
+                            <i class="fas fa-history"></i> Lịch sử
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearChat()">
+                            <i class="fas fa-trash"></i> Xóa chat
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <!-- Chat Messages -->
+                    <div class="chat-container" id="chat-box" style="height: 500px; overflow-y: auto; padding: 15px; background-color: #f8f9fa;">
+                        @foreach (var message in Model.Messages)
+                        {
+                            var isCurrentUser = message.UserName == Model.CurrentUser;
+                            <div class="message-item mb-3 d-flex @(isCurrentUser ? "justify-content-end" : "justify-content-start")" data-message-id="@message.Id">
+                                <div class="d-flex @(isCurrentUser ? "flex-row-reverse" : "")" style="max-width: 75%;">
+                                    <div class="avatar me-3 @(isCurrentUser ? "ms-3 me-0" : "")">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            @message.UserName.Substring(0, 1).ToUpper()
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-1">
+                                            @if (isCurrentUser)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger me-2" onclick="deleteMessage(@message.Id)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            }
+                                            <strong class="me-2">@message.UserName</strong>
+                                            <small class="text-muted">@message.CreatedAt.ToString("HH:mm")</small>
+                                            @if (!isCurrentUser)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" style="margin-left: 4px" onclick="deleteMessage(@message.Id)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                        <div class="message-content bg-light p-2 rounded">@message.Content</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+
+                    <!-- Typing Indicator -->
+                    <div id="typing-indicator" class="px-3 py-2 text-muted small" style="display: none;">
+                        <em>Ai đó đang nhập...</em>
+                    </div>
+                </div>
+
+                <div class="card-footer">
+                    <form id="chat-form" class="d-flex">
+                        <input type="hidden" id="currentRoom" value="@Model.CurrentRoom" />
+                        <input type="text" id="messageInput" class="form-control me-2"
+                               placeholder="Nhập tin nhắn..." autocomplete="off" maxlength="500" />
+                        <button type="submit" class="btn btn-primary" id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Nhấn Enter để gửi • <span id="char-count">0</span>/500 ký tự
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal tạo phòng mới -->
+<div class="modal fade" id="createRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tạo phòng mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createRoomForm">
+                    <div class="mb-3">
+                        <label class="form-label">Tên phòng</label>
+                        <input type="text" class="form-control" id="roomName" required maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" id="roomDescription" rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isPrivate">
+                        <label class="form-check-label" for="isPrivate">
+                            Phòng riêng tư
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="createRoom()">Tạo phòng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .build();
+
+        let typingTimer;
+        let isTyping = false;
+        const currentUser = '@Model.CurrentUser';
+        const currentRoom = '@Model.CurrentRoom';
+
+        // Kết nối SignalR
+        connection.start().then(function () {
+            console.log("SignalR Connected");
+            // Join current room
+            connection.invoke("JoinRoom", currentRoom);
+        }).catch(function (err) {
+            console.error("SignalR Connection Error: ", err);
+        });
+
+        // Nhận tin nhắn
+        connection.on("ReceiveMessage", function (user, message, timestamp) {
+            addMessage(user, message, timestamp);
+        });
+
+        // User joined/left
+        connection.on("UserJoined", function (user, room) {
+            if (room === currentRoom) {
+                showSystemMessage(`${user} đã tham gia phòng`);
+            }
+        });
+
+        connection.on("UserLeft", function (user, room) {
+            if (room === currentRoom) {
+                showSystemMessage(`${user} đã rời khỏi phòng`);
+            }
+        });
+
+        // Typing indicators
+        connection.on("UserTyping", function (user) {
+            showTypingIndicator(`${user} đang nhập...`);
+        });
+
+        connection.on("UserStoppedTyping", function (user) {
+            hideTypingIndicator();
+        });
+
+        // Message deleted
+        connection.on("MessageDeleted", function (messageId) {
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.remove();
+            }
+        });
+
+        // Form submit
+        document.getElementById('chat-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            sendMessage();
+        });
+
+        // Character counter và typing indicator
+        document.getElementById('messageInput').addEventListener('input', function () {
+            const message = this.value;
+            document.getElementById('char-count').textContent = message.length;
+
+            if (message.trim() && !isTyping) {
+                isTyping = true;
+                connection.invoke("UserTyping", currentRoom, currentUser);
+            }
+
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+                if (isTyping) {
+                    isTyping = false;
+                    connection.invoke("UserStoppedTyping", currentRoom, currentUser);
+                }
+            }, 1000);
+        });
+
+        // Enter key để gửi
+        document.getElementById('messageInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            console.log(message)
+            if (message === '') return;
+
+            // Disable button
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+
+            fetch('/Chat/SendMessage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify({
+                    message: message,
+                    roomName: currentRoom
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    messageInput.value = '';
+                    document.getElementById('char-count').textContent = '0';
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi gửi tin nhắn');
+            })
+            .finally(() => {
+                sendButton.disabled = false;
+                messageInput.focus();
+            });
+        }
+
+        function addMessage(user, message, timestamp) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-item mb-3';
+
+            const time = new Date(timestamp).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            messageDiv.innerHTML = `
+                <div class="d-flex">
+                    <div class="avatar me-3">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            ${user.substring(0, 1).toUpperCase()}
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <strong class="me-2">${user}</strong>
+                            <small class="text-muted">${time}</small>
+                        </div>
+                        <div class="message-content">${message}</div>
+                    </div>
+                </div>
+            `;
+
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showSystemMessage(message) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'text-center text-muted small mb-2';
+            messageDiv.innerHTML = `<em>${message}</em>`;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showTypingIndicator(text) {
+            const indicator = document.getElementById('typing-indicator');
+            indicator.innerHTML = `<em>${text}</em>`;
+            indicator.style.display = 'block';
+        }
+
+        function hideTypingIndicator() {
+            document.getElementById('typing-indicator').style.display = 'none';
+        }
+
+        function deleteMessage(messageId) {
+            if (!confirm('Bạn có chắc muốn xóa tin nhắn này?')) return;
+
+            fetch(`/Chat/DeleteMessage/${messageId}`, {
+                method: 'DELETE',
+                headers: {
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi xóa tin nhắn');
+            });
+        }
+
+        function createRoom() {
+            const roomName = document.getElementById('roomName').value.trim();
+            const description = document.getElementById('roomDescription').value.trim();
+            const isPrivate = document.getElementById('isPrivate').checked;
+
+            if (!roomName) {
+                alert('Vui lòng nhập tên phòng');
+                return;
+            }
+
+            console.log("RomoName", roomName);
+
+            fetch('/Chat/CreateRoom', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify({
+                    roomName: roomName,
+                    description: description,
+                    isPrivate: isPrivate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi tạo phòng');
+            });
+        }
+
+        function loadMoreMessages() {
+            // Implement load more messages functionality
+            console.log('Load more messages');
+        }
+
+        function clearChat() {
+            if (confirm('Bạn có chắc muốn xóa toàn bộ chat?')) {
+                document.getElementById('chat-box').innerHTML = '';
+            }
+        }
+    </script>
+}
