@@ -280,12 +280,12 @@
                     messageInput.value = '';
                     document.getElementById('char-count').textContent = '0';
                 } else {
-                    alert('Lỗi: ' + data.error);
+                    toastr.error('Lỗi: ' + data.error);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Có lỗi xảy ra khi gửi tin nhắn');
+                toastr.error('Có lỗi xảy ra khi gửi tin nhắn');
             })
             .finally(() => {
                 sendButton.disabled = false;
@@ -355,12 +355,17 @@
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
-                    alert('Lỗi: ' + data.error);
+                    toastr.error(data.error || 'Đã xảy ra lỗi khi xóa tin nhắn.');
+                } else {
+                    toastr.success('Xóa tin nhắn thành công!');
+                    // Xoá phần tử trên UI nếu cần
+                    const msgElem = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (msgElem) msgElem.remove();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Có lỗi xảy ra khi xóa tin nhắn');
+                toastr.error('Có lỗi xảy ra khi xóa tin nhắn');
             });
         }
 
@@ -370,7 +375,7 @@
             const isPrivate = document.getElementById('isPrivate').checked;
 
             if (!roomName) {
-                alert('Vui lòng nhập tên phòng');
+                toastr.error('Vui lòng nhập tên phòng');
                 return;
             }
 
@@ -393,12 +398,12 @@
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert('Lỗi: ' + data.error);
+                    toastr.error('Lỗi: ' + data.error);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Có lỗi xảy ra khi tạo phòng');
+                toastr.error('Có lỗi xảy ra khi tạo phòng');
             });
         }
 
